@@ -1,0 +1,21 @@
+新生代 GC（Minor GC）：
+    指发生在新生代的垃圾收集动作，因为 Java 对象大多都具备朝生夕灭的特性，所以 Minor GC 非常频繁，一般回收速度也比较快。
+
+老年代 GC（Major GC  / Full GC）：
+    指发生在老年代的 GC，出现了 Major GC，经常会伴随至少一次的 Minor GC（但非绝对的，在 ParallelScavenge 收集器的收集策略里就有直接进行 Major GC 的策略选择过程） 。MajorGC 的速度一般会比 Minor GC 慢 10倍以上。
+
+
+
+堆内存划分为 Eden、Survivor 和 Tenured/Old 空间，代假设和其他不同的 GC 算法超出了本文讨论的范围。
+
+从年轻代空间（包括 Eden 和 Survivor 区域）回收内存被称为 Minor GC。
+
+当 JVM 无法为一个新的对象分配空间时会触发 Minor GC，比如当 Eden 区满了。所以分配率越高，越频繁执行 Minor GC。
+
+Major GC 是清理永久代。
+
+Full GC 是清理整个堆空间—包括年轻代和永久代。
+
+永久代空间不足，会触发full gc
+
+如果之前统计所得到的Minor GC晋升到旧生代的平均大小大于旧生代的剩余空间，那么就直接触发Full GC。
