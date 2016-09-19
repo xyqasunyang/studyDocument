@@ -51,3 +51,6 @@ select*from contact where username like ‘%yue%’
 7.对Where 语句的法则
 
 in 和 exist 区别:http://blog.csdn.net/lick4050312/article/details/4476333
+select * from A
+where id in(select id from B)
+A表比B表大用exist A表比B表小用in
