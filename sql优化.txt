@@ -1,56 +1,56 @@
-1.ʹ�á���ʱ�����ݴ��м���
+﻿1.使用“临时表”暂存中间结果
 
-��SQL������Ҫ�������ǲ�����ʱ���ݴ��м��������ǣ���ʱ���ĺô�ԶԶ��ֹ��Щ������ʱ����ݴ�����ʱ��������Ĳ�ѯ����tempdb���ˣ�����Ա�������ж��ɨ��������Ҳ�������˳���ִ���С�����������������������������������������˲������ܡ�
+简化SQL语句的重要方法就是采用临时表暂存中间结果，但是，临时表的好处远远不止这些，将临时结果暂存在临时表，后面的查询就在tempdb中了，这可以避免程序中多次扫描主表，也大大减少了程序执行中“共享锁”阻塞“更新锁”，减少了阻塞，提高了并发性能。
 
-2.OLTPϵͳSQL��������ð󶨱��� 
-����������䣬��ѯ�Ż�����Ϊ�ǲ�ͬ��SQL��䣬��Ҫ�������Ρ�������ð󶨱���
+2.OLTP系统SQL语句必须采用绑定变量 
+以上两句语句，查询优化器认为是不同的SQL语句，需要解析两次。如果采用绑定变量
 
 select*from orderheader where changetime >@chgtime
-@chgtime�������Դ����κ�ֵ���������������Ʋ�ѯ�������ø�ִ�мƻ��ˣ�����Դ�󽵵����ݿ����SQL���ĸ�����һ�ν�����������ã���������ݿ�Ч�ʵ�ԭ��
+@chgtime变量可以传入任何值，这样大量的类似查询可以重用该执行计划了，这可以大大降低数据库解析SQL语句的负担。一次解析，多次重用，是提高数据库效率的原则。
 
 
-6�� �󶨱�������
+6、 绑定变量窥测
 
-���ﶼ���������ԣ��󶨱����Դ����OLTP���������õģ�����Ҳ�����⡣������where�����е��ֶ��ǡ���б�ֶΡ���ʱ��
+事物都存在两面性，绑定变量对大多数OLTP处理是适用的，但是也有例外。比如在where条件中的字段是“倾斜字段”的时候。
 
-����б�ֶΡ�ָ�����еľ��������ֵ������ͬ�ģ�����һ���˿ڵ���������С����塱���У�90%���϶��Ǻ��塣��ô���һ��SQL���Ҫ��ѯ30��ĺ����˿��ж��٣��ǡ����塱���б�ȻҪ������where�����С����ʱ��������ð󶨱���@nation����ںܴ����⡣
+“倾斜字段”指该列中的绝大多数的值都是相同的，比如一张人口调查表，其中“民族”这列，90%以上都是汉族。那么如果一个SQL语句要查询30岁的汉族人口有多少，那“民族”这列必然要被放在where条件中。这个时候如果采用绑定变量@nation会存在很大问题。
 
-�������@nation����ĵ�һ��ֵ�ǡ����塱��������ִ�мƻ���Ȼ��ѡ���ɨ�衣Ȼ�󣬵ڶ���ֵ������ǡ������塱������˵�������塱ռ�ı�������ֻ�����֮һ��Ӧ�ò����������ҡ����ǣ����������˵�һ�ν����ġ����塱���Ǹ�ִ�мƻ�����ô�ڶ���Ҳ�����ñ�ɨ�跽ʽ�����������������ġ��󶨱������⡱��������ڡ���б�ֶΡ���Ҫ���ð󶨱�����
+试想如果@nation传入的第一个值是“汉族”，那整个执行计划必然会选择表扫描。然后，第二个值传入的是“布依族”，按理说“布依族”占的比例可能只有万分之一，应该采用索引查找。但是，由于重用了第一次解析的“汉族”的那个执行计划，那么第二次也将采用表扫描方式。这个问题就是著名的“绑定变量窥测”，建议对于“倾斜字段”不要采用绑定变量。
 
-7�� ֻ�ڱ�Ҫ������²�ʹ��begin tran
+7、 只在必要的情况下才使用begin tran
 
-SQL Server��һ��SQL���Ĭ�Ͼ���һ�������ڸ����ִ����ɺ�Ҳ��Ĭ��commit�ġ���ʵ�������begin tran��һ����С������ʽ���ñ���ÿ����俪ͷ������һ��begin tran������ʱ������һ��commit��
+SQL Server中一句SQL语句默认就是一个事务，在该语句执行完成后也是默认commit的。其实，这就是begin tran的一个最小化的形式，好比在每句语句开头隐含了一个begin tran，结束时隐含了一个commit。
 
-��Щ����£�������Ҫ��ʽ����begin tran�����������塢ɾ���ġ�������Ҫͬʱ�޸ļ�������Ҫ��Ҫô���������޸ĳɹ���Ҫô�����ɹ���begin tran ���������������ã������԰�����SQL�������һ��ִ�У������һ��commit���ô��Ǳ�֤�����ݵ�һ���ԣ����κ����鶼����������ȱ�ġ�Begin tran�����Ĵ��������ύ֮ǰ������SQL�����ס����Դ�������ͷţ�ֱ��commit����
+有些情况下，我们需要显式声明begin tran，比如做“插、删、改”操作需要同时修改几个表，要求要么几个表都修改成功，要么都不成功。begin tran 可以起到这样的作用，它可以把若干SQL语句套在一起执行，最后再一起commit。好处是保证了数据的一致性，但任何事情都不是完美无缺的。Begin tran付出的代价是在提交之前，所有SQL语句锁住的资源都不能释放，直到commit掉。
 
-�ɼ������Begin tran��ס��SQL���̫�࣬�����ݿ�����ܾ�����ˡ��ڸô������ύ֮ǰ����Ȼ�����������䣬���block�ܶࡣ
+可见，如果Begin tran套住的SQL语句太多，那数据库的性能就糟糕了。在该大事务提交之前，必然会阻塞别的语句，造成block很多。
 
-Begin tranʹ�õ�ԭ���ǣ��ڱ�֤����һ���Ե�ǰ���£�begin tran ��ס��SQL���Խ��Խ�ã���Щ����¿��Բ��ô�����ͬ�����ݣ���һ��Ҫ��begin tran��
+Begin tran使用的原则是，在保证数据一致性的前提下，begin tran 套住的SQL语句越少越好！有些情况下可以采用触发器同步数据，不一定要用begin tran。
 
-8�� һЩSQL��ѯ���Ӧ����nolock
+8、 一些SQL查询语句应加上nolock
 
-��SQL����м�nolock�����SQL Server�������ܵ���Ҫ�ֶΣ���oracle�в�����Ҫ����������Ϊoracle�Ľṹ��Ϊ��������undo���ռ䱣�桰����ǰӰ����������������޸��л�δcommit����ô������������޸�֮ǰ�ĸ������ø�������undo���ռ��С�������oracle�Ķ���д������������Ӱ�죬��Ҳ��oracle ���ܳ��޵ĵط���SQL Server �Ķ���д�ǻ��໥�����ģ�Ϊ����߲������ܣ�����һЩ��ѯ�����Լ���nolock����������ʱ���������д����ȱ���ǿ��ܶ���δ�ύ�������ݡ�ʹ�� nolock��3��ԭ��
+在SQL语句中加nolock是提高SQL Server并发性能的重要手段，在oracle中并不需要这样做，因为oracle的结构更为合理，有undo表空间保存“数据前影”，该数据如果在修改中还未commit，那么你读到的是它修改之前的副本，该副本放在undo表空间中。这样，oracle的读、写可以做到互不影响，这也是oracle 广受称赞的地方。SQL Server 的读、写是会相互阻塞的，为了提高并发性能，对于一些查询，可以加上nolock，这样读的时候可以允许写，但缺点是可能读到未提交的脏数据。使用 nolock有3条原则。
 
-(1)    ��ѯ�Ľ�����ڡ��塢ɾ���ġ��Ĳ��ܼ�nolock ��
+(1)    查询的结果用于“插、删、改”的不能加nolock ！
 
-(2)    ��ѯ�ı�����Ƶ������ҳ���ѵģ�����nolock ��
+(2)    查询的表属于频繁发生页分裂的，慎用nolock ！
 
-(3)    ʹ����ʱ��һ�����Ա��桰����ǰӰ����������oracle��undo���ռ�Ĺ��ܣ�
+(3)    使用临时表一样可以保存“数据前影”，起到类似oracle的undo表空间的功能，
 
-�ܲ�����ʱ����߲������ܵģ���Ҫ��nolock ��
+能采用临时表提高并发性能的，不要用nolock 。
 
-11��ʹ��like����ģ����ѯʱӦע��
+11、使用like进行模糊查询时应注意
 
-�е�ʱ�����Ҫ����һЩģ����ѯ����
+有的时候会需要进行一些模糊查询比如
 
-select*from contact where username like ��%yue%��
+select*from contact where username like ‘%yue%’
  
 
-�ؼ���%yue%������yueǰ���õ��ˡ�%������˸ò�ѯ��Ȼ��ȫ��ɨ�裬���Ǳ�Ҫ������Ҫ�ڹؼ���ǰ��%��
+关键词%yue%，由于yue前面用到了“%”，因此该查询必然走全表扫描，除非必要，否则不要在关键词前加%，
 
-7.��Where ���ķ���
+7.对Where 语句的法则
 
-in �� exist ����:http://blog.csdn.net/lick4050312/article/details/4476333
+in 和 exist 区别:http://blog.csdn.net/lick4050312/article/details/4476333
 select * from A
 where id in(select id from B)
-A����B������exist A����B��С��in
+A表比B表大用exist A表比B表小用in
