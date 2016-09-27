@@ -1,0 +1,4 @@
+HashMap线程不安全
+Hashtable线程安全
+HashMap可以key可以为null
+Hashtable不可以

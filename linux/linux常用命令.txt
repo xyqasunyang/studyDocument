@@ -1,0 +1,14 @@
+ps -ef |grep java
+
+cd /usr/local/nginx/sbin
+./nginx
+
+
+/etc/init.d/nginx
+
+
+find / -name '*nginx*'
+
+rm -rf 删除文件夹
+
+rm -f 删除文件
