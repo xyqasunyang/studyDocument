@@ -1,4 +1,4 @@
-ps -ef |grep java
+ï»¿ps -ef |grep java
 
 cd /usr/local/nginx/sbin
 ./nginx
@@ -9,6 +9,6 @@ cd /usr/local/nginx/sbin
 
 find / -name '*nginx*'
 
-rm -rf É¾³ýÎÄ¼þ¼Ð
+rm -rf åˆ é™¤æ–‡ä»¶å¤¹
 
-rm -f É¾³ýÎÄ¼þ
+rm -f åˆ é™¤æ–‡ä»¶
