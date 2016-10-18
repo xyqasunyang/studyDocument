@@ -12,3 +12,5 @@ find / -name '*nginx*'
 rm -rf 删除文件夹
 
 rm -f 删除文件
+
+nohup 始终执行
